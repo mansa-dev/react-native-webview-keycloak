@@ -29,17 +29,20 @@ export class Login {
       return this.tokenStorage.loadTokens();
     }
 
-    startLoginProcess(conf) {
+    startLoginProcess(conf, callbackForUrl) {
       this.setConf(conf);
       return new Promise(((resolve, reject) => {
         const { url, state } = this.getLoginURL();
+
+        callbackForUrl(url);
         this.state = {
           ...this.state,
           resolve,
           reject,
           state,
         };
-        Linking.openURL(url);
+       console.log(url)
+       // Linking.openURL(url);
       }));
     }
 
@@ -72,7 +75,22 @@ export class Login {
       return false;
     }
 
+    //to be called by webauth page
+    onReceivingUri(url){
+      console.log('onOpenURL'); 
+      if (url.startsWith(this.conf.appsiteUri)) {
+        const {
+          state,
+          code,
+        } = querystring.parse(querystring.extract(url));
+        if (this.state.state === state) {
+          this.retrieveTokens(code);
+        }
+      }
+    }
+
     onOpenURL(event) {
+             console.log('onOpenURL'); 
       if (event.url.startsWith(this.conf.appsiteUri)) {
         const {
           state,
@@ -87,6 +105,7 @@ export class Login {
 
     async retrieveTokens(code) {
       const { redirectUri, clientId } = this.conf;
+        console.log('retrieveTokens'); 
       this.props.url = `${this.getRealmURL()}/protocol/openid-connect/token`;
 
       this.setRequestOptions(
@@ -108,6 +127,7 @@ export class Login {
 
     async retrieveUserInfo() {
       const savedTokens = await this.getTokens();
+       console.log('retrieveUserInfo'); 
       if (savedTokens) {
         this.props.url = `${this.getRealmURL()}/protocol/openid-connect/userinfo`;
 
@@ -127,7 +147,7 @@ export class Login {
       if (!savedTokens) {
         return undefined;
       }
-
+  console.log('refreshToken');
       const { clientId } = this.conf;
       this.props.url = `${this.getRealmURL()}/protocol/openid-connect/token`;
 
@@ -149,11 +169,12 @@ export class Login {
     getRealmURL() {
       const { url, realm } = this.conf;
       const slash = url.endsWith('/') ? '' : '/';
+      console.log('getRealmURL');
       return `${url + slash}realms/${encodeURIComponent(realm)}`;
     }
 
     getLoginURL() {
-      const { redirectUri, clientId, kcIdpHint,options } = this.conf;
+      const { redirectUri, clientId, kcIdpHint } = this.conf;
       const responseType = 'code';
       const state = uuidv4();
       const scope = 'openid';
@@ -163,10 +184,9 @@ export class Login {
         redirect_uri: redirectUri,
         client_id: clientId,
         response_type: responseType,
-        options:options,
         state,
       })}`;
-
+  console.log('getLoginURL&&-->'+url);
       return {
         url,
         state,
